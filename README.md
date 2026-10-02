@@ -1,63 +1,25 @@
 # Enterprise Voice Agent Platform
 
 ## Overview
+A session-oriented voice-agent backend for transcripts, actions, handoffs, and future telephony and real-time model integrations.
 
-A session-oriented voice-agent backend for transcripts, actions, handoffs, and future telephony/real-time model integrations.
-
-This repository is intentionally structured as a runnable reference implementation rather than a collection of notebooks. The service exposes a small HTTP contract, keeps the core domain logic isolated from the API layer, includes automated tests, and can be packaged as a container.
-
-## Why this project exists
-
-Modern AI systems are increasingly becoming distributed software systems rather than single prompts. They need explicit interfaces, policy boundaries, observability, failure handling, testing, and deployment paths. This project demonstrates those engineering concerns around a focused AI workload.
+This is a runnable engineering reference, not a notebook or mockup. The service separates the HTTP layer from domain logic and is designed so demo components can later be replaced by managed infrastructure.
 
 ## Architecture
-
 ```
-Client
-  |
-  v
-FastAPI API
-  |
-  v
-Domain Service
-  |
-  +--> Policy / validation
-  +--> Domain logic
-  +--> Provider or data adapters
-  |
-  v
-Structured response
+Client -> FastAPI -> Domain Service -> Policies / Providers / State -> Structured response
 ```
-
-The current implementation keeps external infrastructure deliberately lightweight so the repository can run locally without proprietary credentials. Production deployments can replace the in-memory/demo components with managed infrastructure without changing the public API contract.
 
 ## Repository structure
+- `app/main.py` — API and validation
+- `app/service.py` — domain behavior
+- `tests/test_api.py` — regression tests
+- `examples/request.sh` — runnable example
+- `Dockerfile` — container packaging
+- `pyproject.toml` — dependencies
+- `.github/workflows/ci.yml` — CI
 
-```
-app/
-  __init__.py
-  main.py       # HTTP API and request validation
-  service.py    # Core domain behavior
-tests/
-  test_api.py   # API-level regression tests
-examples/
-  request.sh    # Runnable API example
-Dockerfile       # Container image
-pyproject.toml   # Python package and dependencies
-.github/
-  workflows/
-    ci.yml       # Automated test pipeline
-```
-
-## Requirements
-
-- Python 3.11+
-- pip
-- Docker (optional)
-- curl or another HTTP client
-
-## Local development
-
+## Quick start
 ```bash
 python -m venv .venv
 source .venv/bin/activate
@@ -65,167 +27,72 @@ pip install -e '.[dev]'
 uvicorn app.main:app --reload
 ```
 
-The API will be available at `http://localhost:8000`.
-
-Health check:
-
+Health:
 ```bash
 curl http://localhost:8000/health
 ```
 
-Run the project-specific example:
-
+Example:
 ```bash
 bash examples/request.sh
 ```
 
-## API contract
-
+## API
 ### GET /health
-
-Returns service health.
-
-Example response:
-
-```json
-{"status":"ok"}
-```
+Returns `{"status":"ok"}`.
 
 ### POST /v1/run
-
-Accepts a JSON request containing a `value` field.
-
+Request:
 ```json
 {"value":"demo request"}
 ```
 
-The response is intentionally structured so callers can consume individual decisions, metadata, and intermediate results rather than parsing natural-language output.
+The response is structured JSON so clients do not need to parse prose.
 
 ## Testing
-
-Run the complete test suite:
-
 ```bash
 pytest -q
 ```
 
-The tests exercise the HTTP contract and core behavior. In a production implementation, these should be complemented by integration tests against real infrastructure and contract tests for external providers.
+Production systems should add integration, contract, load, failure-injection, and security tests.
 
 ## Docker
-
-Build:
-
 ```bash
 docker build -t enterprise-voice-agent-platform .
-```
-
-Run:
-
-```bash
 docker run --rm -p 8000:8000 enterprise-voice-agent-platform
 ```
 
-## Engineering principles
-
-1. **Deterministic boundaries** — business logic should be testable without an LLM.
-2. **Explicit contracts** — API requests and responses use structured schemas.
-3. **Approval before high-impact actions** — agents should not silently perform privileged operations.
-4. **Observability by default** — production versions should emit traces, metrics, and audit events.
-5. **Provider abstraction** — model and infrastructure dependencies should remain replaceable.
-6. **Secure-by-default execution** — untrusted input should be validated before tools or infrastructure are reached.
+## Design principles
+- Keep domain logic deterministic and testable.
+- Keep model/provider integrations behind adapters.
+- Require authorization before privileged tools.
+- Emit structured audit and telemetry events.
+- Treat untrusted input as hostile.
+- Prefer explicit state transitions over implicit agent behavior.
 
 ## Production architecture
-
-A production deployment would typically add:
-
-- API gateway and authentication
-- OAuth/OIDC or workload identity
-- PostgreSQL for durable metadata
-- Redis for caching and coordination
-- Kafka/Pub/Sub for asynchronous work
-- Object storage for large artifacts
-- OpenTelemetry for distributed tracing
-- Prometheus-compatible metrics
-- Secrets manager/KMS
-- Kubernetes or managed container runtime
-- CI/CD with image scanning and deployment gates
+A production deployment can add API gateway authentication, OIDC/workload identity, PostgreSQL, Redis, Kafka or Pub/Sub, object storage, OpenTelemetry, Prometheus-compatible metrics, a secrets manager, Kubernetes, and CI/CD deployment gates.
 
 ## Reliability
-
-Production hardening should include:
-
-- Request timeouts
-- Retries with exponential backoff
-- Idempotency keys
-- Circuit breakers
-- Rate limiting
-- Dead-letter queues
-- Graceful shutdown
-- Dependency health checks
-- Structured logs
-- SLOs and alerting
+Add timeouts, retries with backoff, circuit breakers, rate limits, idempotency keys, dead-letter queues, graceful shutdown, dependency health checks, structured logs, SLOs, and alerting.
 
 ## Security
-
-Do not place API keys or credentials in source code. Use environment variables locally and a managed secret store in production.
-
-Recommended controls include:
-
-- Authentication and authorization
-- Tenant isolation
-- Input validation
-- Output validation
-- Audit logging
-- PII/secret redaction
-- Least-privilege service identities
-- Network egress controls
-- Dependency and container scanning
+Never commit credentials. Use environment variables locally and a managed secrets system in production. Add tenant isolation, least-privilege identities, input/output validation, PII and secret redaction, audit logs, dependency scanning, and network egress controls.
 
 ## CI/CD
-
-GitHub Actions runs the test suite on pushes and pull requests. A production pipeline should extend this with:
-
-1. Formatting/linting
-2. Unit tests
-3. Integration tests
-4. Security scanning
-5. Container build
-6. Container vulnerability scan
-7. Artifact signing
-8. Staging deployment
-9. Smoke tests
-10. Production approval/deployment
+The included workflow runs tests on pushes and pull requests. A production pipeline should add linting, integration tests, security scans, container scanning/signing, staging deployment, smoke tests, and production approval.
 
 ## Roadmap
-
-- Replace demo state with durable infrastructure
-- Add authentication and multi-tenancy
-- Add OpenTelemetry traces
-- Add provider adapters
-- Add load and failure testing
-- Add infrastructure-as-code
-- Add Kubernetes deployment manifests
-- Add production dashboards and SLOs
-
-## Status
-
-This repository is a runnable engineering reference. The local implementation intentionally avoids requiring paid external services, while the architecture documents the path to a production deployment.
+1. Durable state
+2. Authentication and multi-tenancy
+3. Real provider adapters
+4. OpenTelemetry tracing
+5. Load and failure testing
+6. Infrastructure as code
+7. Kubernetes deployment
+8. Operational dashboards and SLOs
 
 ## Project-specific design notes
+**Core problem:** A session-oriented voice-agent backend for transcripts, actions, handoffs, and future telephony and real-time model integrations.
 
-### Core problem
-A session-oriented voice-agent backend for transcripts, actions, handoffs, and future telephony/real-time model integrations.
-
-### Recommended production components
-- Stateless API service for request validation and orchestration
-- Durable state where workflow history or user data must survive restarts
-- Queue/worker separation for long-running operations
-- Model/provider adapters behind stable interfaces
-- Centralized policy and authorization checks
-- Metrics and traces around every external dependency
-
-### Key design trade-off
-The repository favors a small deterministic local implementation over hidden cloud dependencies. This makes the code easy to run, review, test, and extend while keeping the architectural boundary visible.
-
-### What to replace for production
-The in-memory/demo behavior should be replaced with managed storage and real provider integrations appropriate to the deployment environment. Preserve the domain service interface so the API and tests remain stable during that migration.
+**Production extension:** Replace the local deterministic implementation with real infrastructure while preserving the domain service and API contracts.
